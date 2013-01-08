@@ -65,7 +65,7 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 	static dispatch_once_t onceToken;
 	dispatch_once(&onceToken, ^{
 		instance = [[[self class] alloc] init];
-		[instance setDefaultTimeoutInterval:86400];
+		[instance setDefaultTimeoutInterval:86400 * 7];
 	});
 	
 	return instance;
@@ -232,17 +232,57 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 #pragma mark Data methods
 
 - (void)setData:(NSData*)data forKey:(NSString*)key {
-	[self setData:data forKey:key withTimeoutInterval:self.defaultTimeoutInterval];
+    [self setData:data forKey:key success:nil failure:nil];
+}
+
+- (void)    setData:(NSData*)data forKey:(NSString*)key
+            success:(void (^)(NSString *path))success
+            failure:(void (^)(NSError *error))failure
+{
+	[self setData:data forKey:key withTimeoutInterval:self.defaultTimeoutInterval success:success failure:failure];
 }
 
 - (void)setData:(NSData*)data forKey:(NSString*)key withTimeoutInterval:(NSTimeInterval)timeoutInterval {
-	CHECK_FOR_EGOCACHE_PLIST();
+    [self setData:data forKey:key withTimeoutInterval:timeoutInterval success:nil failure:nil];
+}
+
+- (void)    setData:(NSData*)data forKey:(NSString*)key
+withTimeoutInterval:(NSTimeInterval)timeoutInterval
+            success:(void (^)(NSString *path))success
+            failure:(void (^)(NSError *error))failure
+{
+    CHECK_FOR_EGOCACHE_PLIST();
 	
 	NSString* cachePath = cachePathForKey(_directory, key);
 	
 	dispatch_async(_diskQueue, ^{
-		[data writeToFile:cachePath atomically:YES];
-        [_memoryCache setObject:data forKey:key];
+        NSString *fileDirection = [cachePath stringByDeletingLastPathComponent];
+
+        NSError *error;
+        BOOL exists = [[NSFileManager defaultManager] fileExistsAtPath:fileDirection isDirectory:nil];
+        if (!exists) {
+            [[NSFileManager defaultManager] createDirectoryAtPath:fileDirection
+                                      withIntermediateDirectories:YES
+                                                       attributes:nil
+                                                            error:&error];
+        }
+        
+        if (error == nil) {
+            [data writeToFile:cachePath options:NSDataWritingWithoutOverwriting error:&error];
+        }
+        
+        dispatch_sync(dispatch_get_main_queue(), ^{
+            if (error == nil) {
+                [_memoryCache setObject:data forKey:key];
+                if (success) {
+                    success(cachePath);
+                }
+            } else {
+                if (failure) {
+                    failure(error);
+                }
+            }
+        });
 	});
 	
 	[self setCacheTimeoutInterval:timeoutInterval forKey:key];
@@ -297,7 +337,16 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 }
 
 - (void)setString:(NSString*)aString forKey:(NSString*)key withTimeoutInterval:(NSTimeInterval)timeoutInterval {
-	[self setData:[aString dataUsingEncoding:NSUTF8StringEncoding] forKey:key withTimeoutInterval:timeoutInterval];
+    [self setString:aString forKey:key withTimeoutInterval:timeoutInterval success:nil failure:nil];
+}
+
+- (void)    setString:(NSString *)aString
+               forKey:(NSString *)key
+  withTimeoutInterval:(NSTimeInterval)timeoutInterval
+              success:(void (^)(NSString *))success
+              failure:(void (^)(NSError *))failure
+{
+	[self setData:[aString dataUsingEncoding:NSUTF8StringEncoding] forKey:key withTimeoutInterval:timeoutInterval success:success failure:failure];
 }
 
 #pragma mark -
@@ -324,18 +373,38 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 }
 
 - (void)setImage:(UIImage*)anImage forKey:(NSString*)key {
-	[self setImage:anImage forKey:key withTimeoutInterval:self.defaultTimeoutInterval];
+	[self setImage:anImage forKey:key withTimeoutInterval:self.defaultTimeoutInterval success:nil failure:nil];
 }
 
 - (void)setImage:(UIImage*)anImage forKey:(NSString*)key withTimeoutInterval:(NSTimeInterval)timeoutInterval {
+	[self setImage:anImage forKey:key withTimeoutInterval:timeoutInterval success:nil failure:nil];
+}
+
+- (void)setImage:(UIImage *)anImage
+          forKey:(NSString *)key
+         success:(void (^)(NSString *path))success
+         failure:(void (^)(NSError *error))failure
+{
+    [self setImage:anImage forKey:key withTimeoutInterval:self.defaultTimeoutInterval success:success failure:failure];
+}
+
+- (void)    setImage:(UIImage*)anImage
+              forKey:(NSString*)key
+ withTimeoutInterval:(NSTimeInterval)timeoutInterval
+             success:(void (^)(NSString *path))success
+             failure:(void (^)(NSError *error))failure
+{
 	@try {
 		// Using NSKeyedArchiver preserves all information such as scale, orientation, and the proper image format instead of saving everything as pngs
-		[self setData:[NSKeyedArchiver archivedDataWithRootObject:anImage] forKey:key withTimeoutInterval:timeoutInterval];
+		[self setData:[NSKeyedArchiver archivedDataWithRootObject:anImage]
+               forKey:key
+  withTimeoutInterval:timeoutInterval
+              success:success
+              failure:failure];
 	} @catch (NSException* e) {
 		// Something went wrong, but we'll fail silently.
 	}
 }
-
 
 #else
 
@@ -371,12 +440,21 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 }
 
 - (void)setPlist:(id)plistObject forKey:(NSString*)key withTimeoutInterval:(NSTimeInterval)timeoutInterval; {
-	// Binary plists are used over XML for better performance
-	NSData* plistData = [NSPropertyListSerialization dataFromPropertyList:plistObject 
+    [self setPlist:plistObject forKey:key withTimeoutInterval:timeoutInterval success:nil failure:nil];
+}
+
+- (void)    setPlist:(id)plistObject
+              forKey:(NSString *)key
+ withTimeoutInterval:(NSTimeInterval)timeoutInterval
+             success:(void (^)(NSString *))success
+             failure:(void (^)(NSError *))failure
+{
+    // Binary plists are used over XML for better performance
+	NSData* plistData = [NSPropertyListSerialization dataFromPropertyList:plistObject
 																   format:NSPropertyListBinaryFormat_v1_0
 														 errorDescription:NULL];
 	
-	[self setData:plistData forKey:key withTimeoutInterval:timeoutInterval];
+	[self setData:plistData forKey:key withTimeoutInterval:timeoutInterval success:success failure:failure];
 }
 
 #pragma mark -
@@ -402,7 +480,16 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 }
 
 - (void)setObject:(id<NSCoding>)anObject forKey:(NSString*)key withTimeoutInterval:(NSTimeInterval)timeoutInterval {
-	[self setData:[NSKeyedArchiver archivedDataWithRootObject:anObject] forKey:key withTimeoutInterval:timeoutInterval];
+	[self setObject:anObject forKey:key withTimeoutInterval:timeoutInterval success:nil failure:nil];
+}
+
+- (void)    setObject:(id<NSCoding>)anObject
+               forKey:(NSString *)key
+  withTimeoutInterval:(NSTimeInterval)timeoutInterval
+              success:(void (^)(NSString *))success
+              failure:(void (^)(NSError *))failure
+{
+    [self setData:[NSKeyedArchiver archivedDataWithRootObject:anObject] forKey:key withTimeoutInterval:timeoutInterval success:success failure:failure];
 }
 
 #pragma mark -
