@@ -46,6 +46,7 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 	dispatch_queue_t _diskQueue;
 	NSMutableDictionary* _cacheInfo;
 	NSString* _directory;
+    NSCache* _memoryCache;
 	BOOL _needsSave;
 }
 
@@ -120,6 +121,8 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 		
 		[_cacheInfo removeObjectsForKeys:removedKeys];
 		self.frozenCacheInfo = _cacheInfo;
+        
+        _memoryCache = [[NSCache alloc] init];
 	}
 	
 	return self;
@@ -133,12 +136,19 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 		
 		[_cacheInfo removeAllObjects];
 		
+        [_memoryCache removeAllObjects];
+        
 		dispatch_sync(_frozenCacheInfoQueue, ^{
 			self.frozenCacheInfo = [_cacheInfo copy];
 		});
 
 		[self setNeedsSave];
 	});
+}
+
+- (void)clearMemoryCache
+{
+    [_memoryCache removeAllObjects];
 }
 
 - (void)removeCacheForKey:(NSString*)key {
@@ -164,6 +174,11 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 	return [[NSFileManager defaultManager] fileExistsAtPath:cachePathForKey(_directory, key)];
 }
 
+- (NSString *)cachPathForKey:(NSString *)key
+{
+    return cachePathForKey(_directory, key);
+}
+
 - (void)setCacheTimeoutInterval:(NSTimeInterval)timeoutInterval forKey:(NSString*)key {
 	NSDate* date = timeoutInterval > 0 ? [NSDate dateWithTimeIntervalSinceNow:timeoutInterval] : nil;
 	
@@ -187,6 +202,7 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 			_cacheInfo[key] = date;
 		} else {
 			[_cacheInfo removeObjectForKey:key];
+            [_memoryCache removeObjectForKey:key];
 		}
 		
 		dispatch_sync(_frozenCacheInfoQueue, ^{
@@ -226,6 +242,7 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 	
 	dispatch_async(_diskQueue, ^{
 		[data writeToFile:cachePath atomically:YES];
+        [_memoryCache setObject:data forKey:key];
 	});
 	
 	[self setCacheTimeoutInterval:timeoutInterval forKey:key];
@@ -248,7 +265,14 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 
 - (NSData*)dataForKey:(NSString*)key {
 	if([self hasCacheForKey:key]) {
-		return [NSData dataWithContentsOfFile:cachePathForKey(_directory, key) options:0 error:NULL];
+        id obj = [_memoryCache objectForKey:key];
+        if (obj == nil) {
+            obj = [NSData dataWithContentsOfFile:cachePathForKey(_directory, key) options:0 error:NULL];
+            if (obj) {
+                [_memoryCache setObject:obj forKey:key];
+            }
+        }
+		return obj;
 	} else {
 		return nil;
 	}
@@ -258,7 +282,14 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 #pragma mark String methods
 
 - (NSString*)stringForKey:(NSString*)key {
-	return [[NSString alloc] initWithData:[self dataForKey:key] encoding:NSUTF8StringEncoding];
+    id obj = [_memoryCache objectForKey:key];
+    if (obj == nil || ![obj isKindOfClass:[NSString class]]) {
+        obj = [[NSString alloc] initWithData:[self dataForKey:key] encoding:NSUTF8StringEncoding];
+        if (obj) {
+            [_memoryCache setObject:obj forKey:key];
+        }
+    }
+	return obj;
 }
 
 - (void)setString:(NSString*)aString forKey:(NSString*)key {
@@ -274,16 +305,22 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 
 #if TARGET_OS_IPHONE
 
-- (UIImage*)imageForKey:(NSString*)key {
-	UIImage* image = nil;
+- (UIImage*)imageForKey:(NSString*)key {	
+    id obj = [_memoryCache objectForKey:key];
+    if (obj == nil || ![obj isKindOfClass:[NSData class]]) {
+        @try {
+            obj = [NSKeyedUnarchiver unarchiveObjectWithFile:cachePathForKey(_directory, key)];
+            if (obj) {
+                [_memoryCache setObject:obj forKey:key];
+            }
+        } @catch (NSException* e) {
+            // Surpress any unarchiving exceptions and continue with nil
+        }
+    } else {
+        obj = [NSKeyedUnarchiver unarchiveObjectWithData:obj];
+    }
 	
-	@try {
-		image = [NSKeyedUnarchiver unarchiveObjectWithFile:cachePathForKey(_directory, key)];
-	} @catch (NSException* e) {
-		// Surpress any unarchiving exceptions and continue with nil
-	}
-	
-	return image;
+	return obj;
 }
 
 - (void)setImage:(UIImage*)anImage forKey:(NSString*)key {
@@ -347,7 +384,14 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 
 - (id<NSCoding>)objectForKey:(NSString*)key {
 	if([self hasCacheForKey:key]) {
-		return [NSKeyedUnarchiver unarchiveObjectWithData:[self dataForKey:key]];
+        id obj = [_memoryCache objectForKey:key];
+        if (obj == nil) {
+            obj = [NSKeyedUnarchiver unarchiveObjectWithData:[self dataForKey:key]];
+            if (obj) {
+                [_memoryCache setObject:obj forKey:key];
+            }
+        }
+		return obj;
 	} else {
 		return nil;
 	}
@@ -364,7 +408,8 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 #pragma mark -
 
 - (void)dealloc {
-
+    [_memoryCache removeAllObjects];
+    _memoryCache = nil;
 }
 
 @end
