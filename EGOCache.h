@@ -2,8 +2,8 @@
 //  EGOCache.h
 //  enormego
 //
-//  Created by Shaun Harrison on 7/4/09.
-//  Copyright (c) 2009-2012 enormego
+//  Created by Shaun Harrison.
+//  Copyright (c) 2009-2015 enormego.
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -30,81 +30,91 @@
 #import <UIKit/UIKit.h>
 #endif
 
+#if !__has_feature(nullability)
+#	define nullable
+#	define nonnull
+#	define __nullable
+#	define __nonnull
+#endif
+
 @interface EGOCache : NSObject
 
-+ (instancetype)currentCache __deprecated; // Renamed to globalCache
++ (nonnull instancetype)currentCache __deprecated_msg("Renamed to globalCache");
 
 // Global cache for easy use
-+ (instancetype)globalCache;
++ (nonnull instancetype)globalCache;
 
 // Opitionally create a different EGOCache instance with it's own cache directory
-- (id)initWithCacheDirectory:(NSString*)cacheDirectory;
+- (nonnull instancetype)initWithCacheDirectory:(NSString* __nonnull)cacheDirectory;
 
 - (void)clearCache;
 - (void)clearMemoryCache;
-- (void)removeCacheForKey:(NSString*)key;
+- (void)removeCacheForKey:(NSString* __nonnull)key;
 
-- (BOOL)hasCacheForKey:(NSString*)key;
-- (NSString*)cachPathForKey:(NSString*) key;
+- (BOOL)hasCacheForKey:(NSString* __nonnull)key;
+- (NSString* __nullable)cachPathForKey:(NSString* __nonnull) key;
 
-- (NSData*)dataForKey:(NSString*)key;
-- (void)setData:(NSData*)data forKey:(NSString*)key;
-- (void)    setData:(NSData*)data forKey:(NSString*)key
-            success:(void (^)(NSString *path))success
-            failure:(void (^)(NSError *error))failure;
-- (void)setData:(NSData*)data forKey:(NSString*)key withTimeoutInterval:(NSTimeInterval)timeoutInterval;
-- (void)    setData:(NSData*)data forKey:(NSString*)key
+- (NSData* __nullable)dataForKey:(NSString* __nonnull)key;
+- (void)setData:(NSData* __nonnull)data forKey:(NSString* __nonnull)key;
+- (void)    setData:(NSData* __nonnull)data forKey:(NSString* __nonnull)key
+            success:(nullable void (^)(NSString* __nullable path))success
+            failure:(nullable void (^)(NSError* __nullable error))failure;
+- (void)setData:(NSData* __nonnull)data forKey:(NSString* __nonnull)key withTimeoutInterval:(NSTimeInterval)timeoutInterval;
+- (void)    setData:(NSData* __nonnull)data forKey:(NSString* __nonnull)key
 withTimeoutInterval:(NSTimeInterval)timeoutInterval
-            success:(void (^)(NSString *path))success
-            failure:(void (^)(NSError *error))failure;
+            success:(nullable void (^)(NSString* __nullable path))success
+            failure:(nullable void (^)(NSError* __nullable error))failure;
 
-- (NSString*)stringForKey:(NSString*)key;
-- (void)setString:(NSString*)aString forKey:(NSString*)key;
-- (void)setString:(NSString*)aString forKey:(NSString*)key withTimeoutInterval:(NSTimeInterval)timeoutInterval;
-- (void)    setString:(NSString*)aString forKey:(NSString*)key
+- (NSString* __nullable)stringForKey:(NSString* __nonnull)key;
+- (void)setString:(NSString* __nonnull)aString forKey:(NSString* __nonnull)key;
+- (void)setString:(NSString* __nonnull)aString forKey:(NSString* __nonnull)key withTimeoutInterval:(NSTimeInterval)timeoutInterval;
+- (void)    setString:(NSString* __nonnull)aString forKey:(NSString* __nonnull)key
   withTimeoutInterval:(NSTimeInterval)timeoutInterval
-              success:(void (^)(NSString *path))success
-              failure:(void (^)(NSError *error))failure;
+              success:(nullable void (^)(NSString* __nullable path))success
+              failure:(nullable void (^)(NSError* __nullable error))failure;
+
+- (NSDate* __nullable)dateForKey:(NSString* __nonnull)key;
+- (NSArray* __nonnull)allKeys;
 
 #if TARGET_OS_IPHONE
-- (UIImage*)imageForKey:(NSString*)key;
-- (void)setImage:(UIImage*)anImage forKey:(NSString*)key;
-- (void)setImage:(UIImage*)anImage forKey:(NSString*)key withTimeoutInterval:(NSTimeInterval)timeoutInterval;
-- (void)setImage:(UIImage *)anImage
-          forKey:(NSString *)key
-         success:(void (^)(NSString *path))success
-         failure:(void (^)(NSError *error))failure;
-- (void)    setImage:(UIImage*)anImage
-              forKey:(NSString*)key
+- (UIImage* __nullable)imageForKey:(NSString* __nonnull)key;
+- (void)setImage:(UIImage* __nonnull)anImage forKey:(NSString* __nonnull)key;
+- (void)setImage:(UIImage* __nonnull)anImage forKey:(NSString* __nonnull)key withTimeoutInterval:(NSTimeInterval)timeoutInterval;
+- (void)setImage:(UIImage* __nonnull)anImage
+          forKey:(NSString * __nonnull)key
+         success:(nullable void (^)(NSString* __nullable path))success
+         failure:(nullable void (^)(NSError* __nullable error))failure;
+- (void)    setImage:(UIImage* __nonnull)anImage
+              forKey:(NSString* __nonnull)key
  withTimeoutInterval:(NSTimeInterval)timeoutInterval
-             success:(void (^)(NSString *path))success
-             failure:(void (^)(NSError *error))failure;
+             success:(nullable void (^)(NSString* __nullable path))success
+             failure:(nullable void (^)(NSError* __nullable error))failure;
 #else
-- (NSImage*)imageForKey:(NSString*)key;
-- (void)setImage:(NSImage*)anImage forKey:(NSString*)key;
-- (void)setImage:(NSImage*)anImage forKey:(NSString*)key withTimeoutInterval:(NSTimeInterval)timeoutInterval;
+- (NSImage* __nullable)imageForKey:(NSString* __nonnull)key;
+- (void)setImage:(NSImage* __nonnull)anImage forKey:(NSString* __nonnull)key;
+- (void)setImage:(NSImage* __nonnull)anImage forKey:(NSString* __nonnull)key withTimeoutInterval:(NSTimeInterval)timeoutInterval;
 #endif
 
-- (NSData*)plistForKey:(NSString*)key;
-- (void)setPlist:(id)plistObject forKey:(NSString*)key;
-- (void)setPlist:(id)plistObject forKey:(NSString*)key withTimeoutInterval:(NSTimeInterval)timeoutInterval;
-- (void)    setPlist:(id)plistObject
-              forKey:(NSString*)key
+- (NSData* __nullable)plistForKey:(NSString* __nonnull)key;
+- (void)setPlist:(nonnull id)plistObject forKey:(NSString* __nonnull)key;
+- (void)setPlist:(nonnull id)plistObject forKey:(NSString* __nonnull)key withTimeoutInterval:(NSTimeInterval)timeoutInterval;
+- (void)    setPlist:(nonnull id)plistObject
+              forKey:(NSString* __nonnull)key
  withTimeoutInterval:(NSTimeInterval)timeoutInterval
-             success:(void (^)(NSString *path))success
-             failure:(void (^)(NSError *error))failure;
+             success:(nullable void (^)(NSString* __nullable path))success
+             failure:(nullable void (^)(NSError* __nullable error))failure;
 
-- (void)copyFilePath:(NSString*)filePath asKey:(NSString*)key;
-- (void)copyFilePath:(NSString*)filePath asKey:(NSString*)key withTimeoutInterval:(NSTimeInterval)timeoutInterval;	
+- (void)copyFilePath:(NSString* __nonnull)filePath asKey:(NSString* __nonnull)key;
+- (void)copyFilePath:(NSString* __nonnull)filePath asKey:(NSString* __nonnull)key withTimeoutInterval:(NSTimeInterval)timeoutInterval;
 
-- (id<NSCoding>)objectForKey:(NSString*)key;
-- (void)setObject:(id<NSCoding>)anObject forKey:(NSString*)key;
-- (void)setObject:(id<NSCoding>)anObject forKey:(NSString*)key withTimeoutInterval:(NSTimeInterval)timeoutInterval;
-- (void)    setObject:(id<NSCoding>)anObject
-               forKey:(NSString*)key
+- (nullable id<NSCoding>)objectForKey:(NSString* __nonnull)key;
+- (void)setObject:(nonnull id<NSCoding>)anObject forKey:(NSString* __nonnull)key;
+- (void)setObject:(nonnull id<NSCoding>)anObject forKey:(NSString* __nonnull)key withTimeoutInterval:(NSTimeInterval)timeoutInterval;
+- (void)    setObject:(nonnull id<NSCoding>)anObject
+               forKey:(NSString* __nonnull)key
   withTimeoutInterval:(NSTimeInterval)timeoutInterval
-              success:(void (^)(NSString *path))success
-              failure:(void (^)(NSError *error))failure;
+              success:(nullable void (^)(NSString* __nullable path))success
+              failure:(nullable void (^)(NSError* __nullable error))failure;
 
-@property(nonatomic,assign) NSTimeInterval defaultTimeoutInterval; // Default is 1 day
+@property(nonatomic) NSTimeInterval defaultTimeoutInterval; // Default is 1 day
 @end
