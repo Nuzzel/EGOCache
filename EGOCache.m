@@ -152,6 +152,9 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
                     }
                 }
             }
+            NZLLogError("Contents of cache directory after purge: %@", fileList);
+        } else {
+            NZLLogError(@"Unable to purge cache due to error: %@", error);
         }
         
 		[_cacheInfo removeAllObjects];
