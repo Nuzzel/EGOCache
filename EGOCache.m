@@ -147,7 +147,8 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
                     NZLLogDebug(@"About to purge: %@", path);
                     [fileManager removeItemAtPath:path error:&error];
                     if (error) {
-                        NZLLogWarn(@"Unable to purge: %@ due to %@", path, [error localizedDescription]);
+                        NZLLogError(@"Unable to purge %@ due to error: %@", path, error);
+                        break;
                     }
                 }
             }
