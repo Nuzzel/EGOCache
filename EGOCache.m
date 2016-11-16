@@ -88,15 +88,15 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 	if((self = [super init])) {
 		_cacheInfoQueue = dispatch_queue_create("com.enormego.egocache.info", DISPATCH_QUEUE_SERIAL);
 		dispatch_queue_t priority = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0);
-		dispatch_set_target_queue(priority, _cacheInfoQueue);
+		dispatch_set_target_queue(_cacheInfoQueue, priority);
 		
 		_frozenCacheInfoQueue = dispatch_queue_create("com.enormego.egocache.info.frozen", DISPATCH_QUEUE_SERIAL);
 		priority = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0);
-		dispatch_set_target_queue(priority, _frozenCacheInfoQueue);
+		dispatch_set_target_queue(_frozenCacheInfoQueue, priority);
 		
 		_diskQueue = dispatch_queue_create("com.enormego.egocache.disk", DISPATCH_QUEUE_CONCURRENT);
 		priority = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0);
-		dispatch_set_target_queue(priority, _diskQueue);
+		dispatch_set_target_queue(_diskQueue, priority);
 		
 		
 		_directory = cacheDirectory;
@@ -136,8 +136,25 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
 			[[NSFileManager defaultManager] removeItemAtPath:cachePathForKey(_directory, key) error:NULL];
 		}
 		
+        // force delete everything in cache directory
+        NSError *error = nil;
+        NSFileManager *fileManager = [NSFileManager defaultManager];
+        NSArray *fileList = [fileManager contentsOfDirectoryAtPath:_directory error:&error];
+        if (!error) {
+            for (NSString *file in fileList)  {
+                if (![file isEqualToString:@"EGOCache.plist"]) {
+                    NSString *path = [_directory stringByAppendingPathComponent:file];
+                    NZLLogDebug(@"About to purge: %@", path);
+                    [fileManager removeItemAtPath:path error:&error];
+                    if (error) {
+                        NZLLogWarn(@"Unable to purge: %@ due to %@", path, [error localizedDescription]);
+                    }
+                }
+            }
+        }
+        
 		[_cacheInfo removeAllObjects];
-		
+        
         [_memoryCache removeAllObjects];
         
 		dispatch_sync(_frozenCacheInfoQueue, ^{
