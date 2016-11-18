@@ -144,17 +144,17 @@ static inline NSString* cachePathForKey(NSString* directory, NSString* key) {
             for (NSString *file in fileList)  {
                 if (![file isEqualToString:@"EGOCache.plist"]) {
                     NSString *path = [_directory stringByAppendingPathComponent:file];
-                    NZLLogDebug(@"About to purge: %@", path);
+                    NSLog(@"About to purge: %@", path);
                     [fileManager removeItemAtPath:path error:&error];
                     if (error) {
-                        NZLLogError(@"Unable to purge %@ due to error: %@", path, error);
+                        NSLog(@"Unable to purge %@ due to error: %@", path, error);
                         break;
                     }
                 }
             }
-            NZLLogError("Contents of cache directory after purge: %@", fileList);
+            NSLog(@"Contents of cache directory after purge: %@", fileList);
         } else {
-            NZLLogError(@"Unable to purge cache due to error: %@", error);
+            NSLog(@"Unable to purge cache due to error: %@", error);
         }
         
 		[_cacheInfo removeAllObjects];
